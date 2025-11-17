@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TicTacToe — Game Client</title>
+<style>
+  body{font-family:Inter,system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f3f6fb}
+  .wrap{background:#fff;padding:24px;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,0.06);width:360px}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+  .cell{background:#f8fafc;border-radius:8px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:28px;cursor:pointer}
+  .meta{font-size:14px;color:#374151}
+  button.btn{padding:8px 12px;border-radius:8px;border:0;background:#60a5fa;color:#fff;cursor:pointer}
+  #status{margin-top:8px;color:#6b7280;font-size:13px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="meta">Room: <span id="roomId">-</span></div>
+    <div id="turn" class="meta"></div>
+    <div class="board" id="board"></div>
+    <div id="status">Connecting…</div>
+    <div style="margin-top:10px"><button id="back" class="btn">Back to Lobby</button></div>
+  </div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const room = params.get("room");
+  const token = localStorage.getItem("auth_token");
+  document.getElementById("roomId").textContent = room || "-";
+  const boardEl = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const turnEl = document.getElementById("turn");
+  const backBtn = document.getElementById("back");
+  backBtn.onclick = ()=> location.href = "/static/lobby.html";
+
+  function renderBoard(board){
+    boardEl.innerHTML = "";
+    for (let i=0;i<9;i++){
+      const val = board[i];
+      const c = document.createElement("div");
+      c.className = "cell";
+      c.dataset.pos = i;
+      c.textContent = val || "";
+      c.onclick = ()=> {
+        if (!ws || ws.readyState !== WebSocket.OPEN) { alert("Not connected"); return; }
+        // send move
+        ws.send(JSON.stringify({type:"move", pos: i, player: localStorage.getItem("last_username") || "player"}));
+      };
+      boardEl.appendChild(c);
+    }
+  }
+
+  // build ws url
+  const proto = (location.protocol === "https:") ? "wss" : "ws";
+  const WS_HOST = "127.0.0.1:8003"; // change if needed
+  const wsUrl = token ? `${proto}://${WS_HOST}/ws?room=${encodeURIComponent(room)}&token=${encodeURIComponent(token)}` 
+                      : `${proto}://${WS_HOST}/ws?room=${encodeURIComponent(room)}`;
+  let ws = null;
+
+  function setStatus(s){ statusEl.textContent = s; console.log("[status]", s) }
+  function setTurn(t){ turnEl.textContent = t ? "Turn: " + t : "" }
+
+  function connect(){
+    setStatus("Connecting to game server...");
+    ws = new WebSocket(wsUrl);
+    ws.onopen = ()=> setStatus("Connected");
+    ws.onmessage = (ev)=>{
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.board) {
+          renderBoard(msg.board);
+          setTurn(msg.turn);
+          if (msg.winner) setStatus("Winner: " + msg.winner);
+          else setStatus("State: " + msg.state);
+        } else {
+          setStatus(JSON.stringify(msg));
+        }
+      } catch(e){
+        console.error("ws message parse", e, ev.data);
+      }
+    };
+    ws.onclose = ()=> setStatus("Disconnected — reconnecting...") || setTimeout(connect, 1000);
+    ws.onerror = (e)=> console.error("ws error", e);
+  }
+
+  if (!room) {
+    setStatus("No room provided in URL");
+  } else {
+    connect();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tic Tac Toe — Login / Register</title>
+
+<style>
+  :root{
+    --bg: #0f1724;
+    --card: #0b1220;
+    --muted: #98a0b3;
+    --accent: #6ee7b7;
+    --accent-2: #60a5fa;
+    --glass: rgba(255,255,255,0.04);
+    --success: #34d399;
+    --danger: #ff6b6b;
+    --shadow: 0 10px 30px rgba(2,6,23,0.6);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+
+  html,body { height:100%; margin:0; background: linear-gradient(180deg,#071021 0%, #0b1220 60%); color:#e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+  .wrap { min-height:100%; display:flex; align-items:center; justify-content:center; padding:32px; box-sizing:border-box; }
+
+  .card {
+    width: 100%;
+    max-width:920px;
+    display:grid;
+    grid-template-columns: 420px 1fr;
+    gap:28px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.015));
+    border-radius:14px;
+    box-shadow: var(--shadow);
+    overflow:hidden;
+  }
+
+  /* Left — form */
+  .panel {
+    padding:28px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    display:flex; flex-direction:column; gap:18px; justify-content:center;
+  }
+
+  .logo {
+    display:flex; gap:12px; align-items:center;
+  }
+  .logo svg { width:40px; height:40px; }
+  h1 { margin:0; font-size:20px; letter-spacing:0.2px; }
+  p.lead { margin:0; color:var(--muted); font-size:13px; }
+
+  form { margin-top:8px; display:flex; flex-direction:column; gap:12px; }
+  label { font-size:13px; color:var(--muted); display:block; margin-bottom:6px; }
+  .input {
+    display:flex; align-items:center; gap:8px;
+    background:var(--glass); border-radius:10px; padding:10px 12px; border:1px solid rgba(255,255,255,0.03);
+  }
+  .input input {
+    background:transparent; border:0; color:inherit; outline:none; font-size:15px; width:100%;
+  }
+
+  .row { display:flex; gap:8px; }
+  button.primary {
+    flex:1;
+    padding:10px 14px; border-radius:10px; border:0; cursor:pointer; font-weight:600;
+    background: linear-gradient(90deg,var(--accent), var(--accent-2));
+    color:#04202b; box-shadow: 0 6px 18px rgba(96,165,250,0.12);
+  }
+  button.ghost {
+    padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.06);
+    background:transparent; color:var(--accent); cursor:pointer; font-weight:600;
+  }
+
+  .muted { color:var(--muted); font-size:13px; }
+  .msg { padding:10px 12px; border-radius:10px; font-size:13px; display:none; }
+
+  .msg.ok { background: rgba(52,211,153,0.08); color:var(--success); border:1px solid rgba(52,211,153,0.12); display:block;}
+  .msg.err { background: rgba(255,107,107,0.06); color:var(--danger); border:1px solid rgba(255,107,107,0.08); display:block;}
+
+  /* password extras */
+  .pwrow { display:flex; align-items:center; gap:12px; }
+  .toggle { cursor:pointer; opacity:0.85; border-radius:8px; padding:6px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02); }
+  .strength { height:8px; border-radius:6px; background: rgba(255,255,255,0.03); overflow:hidden; width:100%; }
+  .strength > i { display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--danger), var(--accent)); transition:width 260ms ease; }
+
+  /* Right — info / game promo */
+  .visual {
+    padding:28px; background: linear-gradient(90deg, rgba(96,165,250,0.03), rgba(110,231,183,0.02));
+    display:flex; flex-direction:column; gap:12px; justify-content:center;
+    border-left:1px solid rgba(255,255,255,0.02);
+  }
+  .visual h2 { margin:0; font-size:18px; }
+  .visual p { margin:0; color:var(--muted); font-size:14px; }
+  .board-preview { margin-top:18px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:220px; }
+  .board-preview div { background:rgba(255,255,255,0.03); aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#0b1220; }
+  .small { font-size:12px; color:var(--muted); margin-top:10px; }
+
+  /* responsive */
+  @media (max-width:880px){
+    .card { grid-template-columns: 1fr; padding:18px; }
+    .visual { order:2; border-left:none; border-top:1px solid rgba(255,255,255,0.02); padding-top:20px; }
+    .panel { padding:20px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="main" aria-labelledby="app-title">
+
+      <section class="panel" aria-label="Authentication panel">
+        <div class="logo" aria-hidden="true">
+          <!-- simple icon -->
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="2" y="2" width="20" height="20" rx="4" fill="#071a2a" stroke="#1f4a74"/>
+            <path d="M7 12h10M12 7v10" stroke="#6ee7b7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div>
+            <h1 id="app-title">Tic Tac Toe — Login</h1>
+            <p class="lead">Sign in or create an account to play with friends.</p>
+          </div>
+        </div>
+
+        <div id="message" class="msg" role="status" aria-live="polite"></div>
+
+        <form id="authForm" autocomplete="off" onsubmit="return false;">
+          <div>
+            <label for="username">Username</label>
+            <div class="input">
+              <input id="username" name="username" type="text" autocomplete="username" placeholder="Your username" required minlength="3" maxlength="64" />
+            </div>
+          </div>
+
+          <div>
+            <label for="password">Password</label>
+            <div class="input pwrow">
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="At least 6 characters" required minlength="6" maxlength="256" />
+              <div class="toggle" id="togglePw" title="Show / hide password" aria-pressed="false" role="button">
+                <!-- eye icon -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" stroke="#cfeef6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="#cfeef6" stroke-width="1.1"/></svg>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+              <div style="flex:1;">
+                <div class="strength" aria-hidden="true"><i id="strengthBar"></i></div>
+              </div>
+              <div style="width:86px; text-align:right;" class="muted" id="strengthText">--</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="loginBtn" class="primary" type="button">Login</button>
+            <button id="registerBtn" class="ghost" type="button">Register</button>
+          </div>
+
+          <div style="margin-top:8px" class="muted small">By continuing you agree to the project demo terms. Passwords are stored hashed locally for development.</div>
+        </form>
+      </section>
+
+      <aside class="visual" aria-label="About the game">
+        <h2>Play Tic Tac Toe — distributed architecture</h2>
+        <p>Two-player turn-based game. Use this account to create rooms and join matches. Backend uses Python + REST (User service) and WebSockets for realtime gameplay.</p>
+
+        <div class="board-preview" aria-hidden="true">
+          <div style="background:var(--accent); color:#04202b">X</div>
+          <div>O</div>
+          <div>X</div>
+          <div>O</div>
+          <div style="background:var(--accent-2); color:#04202b">X</div>
+          <div>O</div>
+          <div>X</div>
+          <div>O</div>
+          <div style="background:var(--accent); color:#04202b">X</div>
+        </div>
+
+        <p class="small">Tip: After login you'll receive a token. Save it and use it when connecting to rooms or WebSocket sessions.</p>
+      </aside>
+
+    </div>
+  </div>
+
+<script>
+  const apiBase = ""; // same origin
+
+  const usernameEl = document.getElementById("username");
+  const passwordEl = document.getElementById("password");
+  const loginBtn = document.getElementById("loginBtn");
+  const registerBtn = document.getElementById("registerBtn");
+  const msgEl = document.getElementById("message");
+  const togglePw = document.getElementById("togglePw");
+  const strengthBar = document.getElementById("strengthBar");
+  const strengthText = document.getElementById("strengthText");
+
+  // helpers
+  function showMessage(text, type="info") {
+    msgEl.textContent = text;
+    msgEl.className = "msg";
+    if (type === "ok") msgEl.classList.add("ok");
+    else if (type === "err") msgEl.classList.add("err");
+    else msgEl.style.display = "block";
+  }
+  function clearMessage(){ msgEl.textContent=""; msgEl.className="msg"; msgEl.style.display="none"; }
+
+  // password strength (simple heuristic)
+  function evaluateStrength(pw){
+    let score = 0;
+    if (!pw) return {score, label:"--"};
+    if (pw.length >= 8) score += 2;
+    if (pw.length >= 12) score += 1;
+    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+    if (/\d/.test(pw)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+    const pct = Math.min(100, (score / 6) * 100);
+    let label = "Weak";
+    if (pct > 75) label = "Strong";
+    else if (pct > 45) label = "Medium";
+    else label = "Weak";
+    return {score, pct, label};
+  }
+
+  passwordEl.addEventListener("input", ()=>{
+    const pw = passwordEl.value || "";
+    const r = evaluateStrength(pw);
+    strengthBar.style.width = (r.pct || 0) + "%";
+    strengthText.textContent = r.label;
+    if (r.pct <= 33) strengthBar.style.background = "linear-gradient(90deg,var(--danger), #f59e0b)";
+    else if (r.pct <= 66) strengthBar.style.background = "linear-gradient(90deg,#f59e0b,var(--accent))";
+    else strengthBar.style.background = "linear-gradient(90deg,var(--accent), var(--accent-2))";
+  });
+
+  togglePw.addEventListener("click", ()=>{
+    const t = passwordEl;
+    const shown = t.type === "text";
+    t.type = shown ? "password" : "text";
+    togglePw.setAttribute("aria-pressed", String(!shown));
+  });
+
+  function setButtonsEnabled(enabled){
+    loginBtn.disabled = !enabled;
+    registerBtn.disabled = !enabled;
+    if (enabled){
+      loginBtn.classList.remove('disabled');
+      registerBtn.classList.remove('disabled');
+    } else {
+      loginBtn.classList.add('disabled');
+      registerBtn.classList.add('disabled');
+    }
+  }
+
+  async function postJSON(path, body){
+    clearMessage();
+    try {
+      const res = await fetch(apiBase + path, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e){ data = { raw: text }; }
+      if (!res.ok) throw { status: res.status, data };
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async function handleRegister(){
+    const username = usernameEl.value.trim();
+    const password = passwordEl.value;
+    if (!username || username.length < 3) return showMessage("Enter a username (min 3 chars).", "err");
+    if (!password || password.length < 6) return showMessage("Password must be at least 6 characters.", "err");
+
+    setButtonsEnabled(false);
+    showMessage("Registering…", "info");
+    try {
+      const data = await postJSON("/register", {username, password});
+      showMessage(`Registered ${data.username}. You can now login.`, "ok");
+    } catch (err) {
+      const d = err?.data;
+      const detail = d?.detail || d?.raw || "Registration failed";
+      showMessage(detail, "err");
+    } finally {
+      setButtonsEnabled(true);
+    }
+  }
+
+  async function handleLogin(){
+    const username = usernameEl.value.trim();
+    const password = passwordEl.value;
+    if (!username || username.length < 3) return showMessage("Enter a username (min 3 chars).", "err");
+    if (!password || password.length < 6) return showMessage("Password must be at least 6 characters.", "err");
+
+    setButtonsEnabled(false);
+    showMessage("Logging in…", "info");
+    try {
+      const data = await postJSON("/login", {username, password});
+      // store token and show success
+      if (data?.access_token) {
+        localStorage.setItem("auth_token", data.access_token);
+        localStorage.setItem("last_username", username);
+        showMessage("Login successful — redirecting to lobby...", "ok");
+        // short delay so user sees the message
+        setTimeout(()=> window.location.href = "/static/lobby.html", 800);
+      } else {
+        showMessage("Login succeeded but no token returned.", "ok");
+      }
+    } catch (err) {
+      const d = err?.data;
+      const detail = d?.detail || d?.raw || "Login failed";
+      showMessage(detail, "err");
+    } finally {
+      setButtonsEnabled(true);
+    }
+  }
+
+  loginBtn.addEventListener("click", handleLogin);
+  registerBtn.addEventListener("click", handleRegister);
+
+  // Quick UX: press Enter to submit
+  document.getElementById("authForm").addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleLogin();
+    }
+  });
+
+  // client-side: prevent extremely long passwords (helps bcrypt compatibility)
+  passwordEl.addEventListener("input", ()=>{
+    if (passwordEl.value.length > 256) {
+      passwordEl.value = passwordEl.value.slice(0,256);
+      showMessage("Password truncated to 256 characters (client limit).", "err");
+      setTimeout(clearMessage, 2000);
+    }
+  });
+
+  // load saved username if present
+  window.addEventListener("load", ()=>{
+    const saved = localStorage.getItem("last_username");
+    if (saved) usernameEl.value = saved;
+  });
+  usernameEl.addEventListener("blur", ()=> localStorage.setItem("last_username", usernameEl.value.trim()));
+</script>
+</body>
+</html>
