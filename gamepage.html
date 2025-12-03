@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tic Tac Toe — Simple Turn Based</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display:flex;
+           align-items:center; justify-content:center; height:100vh; margin:0; background:#f7f7f8; }
+    .container { width:320px; text-align:center; }
+    h1 { margin: 8px 0 14px; font-size:20px; }
+    .board { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin: 12px 0; }
+    .cell {
+      background:#fff; border-radius:8px; height:90px; display:flex; align-items:center; justify-content:center;
+      font-size:40px; cursor:pointer; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.08);
+    }
+    .cell.disabled { cursor:default; opacity:0.7; }
+    .info { font-size:14px; color:#333; margin-top:8px; }
+    .controls { margin-top:12px; display:flex; gap:8px; justify-content:center; }
+    button { padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tic Tac Toe — Local Turn Based</h1>
+
+    <div class="info" id="status">Player X's turn</div>
+
+    <div class="board" id="board">
+      <!-- 9 cells inserted by JS -->
+    </div>
+
+    <div class="controls">
+      <button id="resetBtn">Reset</button>
+      <button id="hintBtn">Show Hint</button>
+    </div>
+
+    <div class="info" id="notes" style="margin-top:10px; font-size:13px; color:#666;">
+      Two players share this page. Not networked — use as prototype for UI or to test game logic.
+    </div>
+  </div>
+
+  <script>
+    // Simple turn-based Tic Tac Toe (local). Not networked.
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const notesEl = document.getElementById('notes');
+    const resetBtn = document.getElementById('resetBtn');
+    const hintBtn = document.getElementById('hintBtn');
+
+    // Game state
+    let board = Array(9).fill(null); // null | 'X' | 'O'
+    let current = 'X'; // X starts
+    let finished = false;
+
+    // Winning lines
+    const wins = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    // Render board cells
+    function renderBoard(){
+      boardEl.innerHTML = '';
+      board.forEach((v,i) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell' + (v ? ' disabled' : '');
+        cell.dataset.idx = i;
+        cell.textContent = v || '';
+        cell.addEventListener('click', onCellClick);
+        boardEl.appendChild(cell);
+      });
+    }
+
+    function onCellClick(e){
+      if (finished) return;
+      const idx = Number(e.currentTarget.dataset.idx);
+      if (board[idx]) return; // occupied
+      board[idx] = current;
+      // update
+      const winner = checkWinner();
+      if (winner) {
+        finished = true;
+        if (winner === 'draw') {
+          statusEl.textContent = "It's a draw!";
+        } else {
+          statusEl.textContent = `Player ${winner} wins!`;
+          // highlight winning cells (optional)
+          highlightWin(winner);
+        }
+      } else {
+        // swap turn
+        current = current === 'X' ? 'O' : 'X';
+        statusEl.textContent = `Player ${current}'s turn`;
+      }
+      renderBoard();
+    }
+
+    function checkWinner(){
+      for (const line of wins) {
+        const [a,b,c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return board[a]; // 'X' or 'O'
+        }
+      }
+      if (board.every(cell => cell !== null)) return 'draw';
+      return null;
+    }
+
+    function highlightWin(player){
+      // naive: find winning line and add a style
+      for (const line of wins) {
+        const [a,b,c] = line;
+        if (board[a] === player && board[b] === player && board[c] === player) {
+          // find corresponding DOM cells
+          const cells = boardEl.querySelectorAll('.cell');
+          [a,b,c].forEach(i => cells[i].style.background = '#e6ffe6');
+        }
+      }
+    }
+
+    // Reset game
+    function reset(){
+      board = Array(9).fill(null);
+      current = 'X';
+      finished = false;
+      statusEl.textContent = `Player ${current}'s turn`;
+      renderBoard();
+      // clear highlights
+      const cells = boardEl.querySelectorAll('.cell');
+      cells.forEach(c => c.style.background = '');
+    }
+
+    // Simple hint: pick first empty cell
+    function showHint(){
+      if (finished) return;
+      const idx = board.findIndex(x => x === null);
+      if (idx === -1) {
+        notesEl.textContent = "No moves left.";
+        return;
+      }
+      const cells = boardEl.querySelectorAll('.cell');
+      // flash the hint cell
+      const el = cells[idx];
+      el.style.boxShadow = '0 0 0 4px rgba(0,128,0,0.12)';
+      setTimeout(()=> el.style.boxShadow = '', 700);
+      notesEl.textContent = `Hint: consider cell ${idx+1} (top-left is 1).`;
+    }
+
+    // wire up controls
+    resetBtn.addEventListener('click', reset);
+    hintBtn.addEventListener('click', showHint);
+
+    // initial render
+    renderBoard();
+  </script>
+</body>
+</html>

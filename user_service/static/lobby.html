@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Lobby — Tic Tac Toe</title>
+<style>
+  :root{
+    --bg: linear-gradient(180deg,#071021 0%, #0b1220 60%);
+    --container-bg: rgba(255,255,255,0.02);
+    --card: rgba(255,255,255,0.03);
+    --muted: #98a0b3;
+    --accent: #6ee7b7;
+    --accent-2: #60a5fa;
+    --glass: rgba(255,255,255,0.03);
+    --shadow: 0 12px 30px rgba(2,6,23,0.6);
+    --muted-2: #c7d2e0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8;-webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+  .wrap{max-width:1100px;margin:28px auto;padding:20px;}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;}
+  h1{margin:0;font-size:22px;color:#e6eef8}
+  .muted{color:var(--muted);font-size:13px}
+  .user-info{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--muted)}
+  .btn{padding:8px 12px;border-radius:10px;border:0;cursor:pointer;background:transparent;color:var(--muted);backdrop-filter: blur(4px); border:1px solid rgba(255,255,255,0.03)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#04202b;border:0;box-shadow:0 8px 20px rgba(96,165,250,0.08)}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+  .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,0.02)}
+  .rooms-list{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+  .room-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.02)}
+  .meta{font-size:13px;color:var(--muted-2)}
+  .status-chip{padding:6px 10px;border-radius:999px;font-weight:600;font-size:13px}
+  .waiting{background:rgba(255,243,224,0.06);color:#f59e0b;border:1px solid rgba(249,115,22,0.06)}
+  .full{background:rgba(255,235,238,0.03);color:#ff9aa2;border:1px solid rgba(239,68,68,0.04)}
+  .room-actions{display:flex;gap:8px;align-items:center}
+  input[type="text"], select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted-2);font-size:14px;box-sizing:border-box}
+  .chip{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);font-weight:600;color:var(--muted-2)}
+  .copy-btn{padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted-2);cursor:pointer}
+  .waiting-area{margin-top:18px}
+  .players-list{margin-top:8px;font-size:15px;color:var(--muted-2);display:flex;flex-direction:column;gap:6px}
+  .player-item{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.01);display:flex;justify-content:space-between;align-items:center}
+  .join-code{display:flex;gap:8px;align-items:center;margin-top:10px}
+  #lobbyMessage{margin-top:10px;font-size:13px;color:var(--muted-2)}
+  .small{font-size:12px;color:var(--muted)}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Lobby — Create or Join a Room</h1>
+        <div class="small" style="margin-top:6px">Find a match or create a private room and share its code.</div>
+      </div>
+      <div class="user-info">
+        <div id="who">Not logged in</div>
+        <button id="logout" class="btn">Logout</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-label="Available rooms">
+        <h3 style="margin:0 0 12px 0">Available Rooms</h3>
+        <div class="muted small" style="margin-bottom:12px">Rooms update automatically. Click Join or use a Room Code.</div>
+
+        <div id="roomList" class="rooms-list" aria-live="polite"></div>
+
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <button id="refreshBtn" class="btn">Refresh</button>
+          <div class="muted" id="roomsCount" style="margin-left:12px"></div>
+        </div>
+      </section>
+
+      <section class="card create-panel" aria-label="Create room">
+        <h3 style="margin:0 0 12px 0">Create Room</h3>
+
+        <label for="roomName" class="muted small">Room name</label>
+        <input id="roomName" placeholder="Friendly room name (optional)" maxlength="36" />
+
+        <label style="margin-top:10px" class="muted small">Max players</label>
+        <select id="maxPlayers"><option value="2">2</option></select>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button id="createBtn" class="btn primary">Create Room</button>
+          <div id="createMsg" class="muted" style="align-self:center"></div>
+        </div>
+
+        <div id="createdInfo" style="margin-top:12px;display:none">
+          <div class="muted small">Room Code</div>
+          <div style="margin-top:6px;display:flex;gap:8px;align-items:center">
+            <div id="roomCodeChip" class="chip">—</div>
+            <button id="copyCodeBtn" class="copy-btn">Copy</button>
+            <button id="openRoomBtn" class="btn">Open Room</button>
+          </div>
+
+          <div style="margin-top:12px">
+            <label for="joinCodeInput" class="muted small">Join by Room Code</label>
+            <div class="join-code">
+              <input id="joinCodeInput" placeholder="paste room id here" />
+              <button id="joinByCodeBtn" class="btn">Join</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="waitingContainer" class="card waiting-area" style="display:none">
+      <h3 id="waitingTitle" style="margin:0">Waiting …</h3>
+      <div class="muted" style="margin-top:6px">Room code: <span id="waitingRoomCode" class="chip">—</span></div>
+      <div class="muted" style="margin-top:6px">Players in the room:</div>
+      <div id="playersList" class="players-list"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button id="leaveBtn" class="btn">Leave Room</button>
+        <button id="startGameBtn" class="btn primary" style="display:none">Start Game</button>
+      </div>
+    </div>
+
+    <div id="lobbyMessage" aria-live="polite"></div>
+  </div>
+
+<script>
+  const ROOM_BASE = "http://127.0.0.1:8002";
+  const GAME_BASE = "http://127.0.0.1:8003";
+  const token = localStorage.getItem("auth_token");
+  let username = localStorage.getItem("last_username") || null;
+
+  const whoEl = document.getElementById("who");
+  const logoutBtn = document.getElementById("logout");
+  const roomListEl = document.getElementById("roomList");
+  const refreshBtn = document.getElementById("refreshBtn");
+  const roomsCountEl = document.getElementById("roomsCount");
+  const createBtn = document.getElementById("createBtn");
+  const roomNameEl = document.getElementById("roomName");
+  const maxPlayersEl = document.getElementById("maxPlayers");
+  const createMsg = document.getElementById("createMsg");
+  const createdInfo = document.getElementById("createdInfo");
+  const roomCodeChip = document.getElementById("roomCodeChip");
+  const copyCodeBtn = document.getElementById("copyCodeBtn");
+  const openRoomBtn = document.getElementById("openRoomBtn");
+  const joinCodeInput = document.getElementById("joinCodeInput");
+  const joinByCodeBtn = document.getElementById("joinByCodeBtn");
+  const waitingContainer = document.getElementById("waitingContainer");
+  const waitingTitle = document.getElementById("waitingTitle");
+  const waitingRoomCode = document.getElementById("waitingRoomCode");
+  const playersList = document.getElementById("playersList");
+  const leaveBtn = document.getElementById("leaveBtn");
+  const startGameBtn = document.getElementById("startGameBtn");
+  const lobbyMessageEl = document.getElementById("lobbyMessage");
+
+  let currentRoomId = null;
+  let pollHandle = null;
+  let gamePollHandle = null;
+
+  function setLoggedIn(name){ if (!name) { whoEl.textContent = "Logged in"; return; } whoEl.textContent = "Logged in as " + name; }
+  if (!token) { alert("No token found — please login first."); window.location.href = "/"; } else { setLoggedIn(username || "player"); }
+
+  function authHeaders(){ const h = {"Content-Type":"application/json"}; if (token) h["Authorization"] = "Bearer " + token; return h; }
+
+  async function api(path, opts = {}){ const headers = Object.assign({}, authHeaders(), opts.headers || {}); const res = await fetch(ROOM_BASE + path, Object.assign({}, opts, {headers})); if (!res.ok) { const t = await res.text(); throw {status: res.status, body: t}; } try { return await res.json(); } catch(e){ return null; } }
+
+  async function loadRooms(){ try { const rooms = await api("/rooms"); renderRooms(rooms || []); roomsCountEl.textContent = `${(rooms || []).length} rooms`; } catch (e) { console.error("loadRooms error", e); roomsCountEl.textContent = "Failed to load rooms"; } }
+
+  function renderRooms(rooms){
+    roomListEl.innerHTML = "";
+    if (!rooms.length){ const el = document.createElement("div"); el.className = "muted"; el.textContent = "No rooms found"; roomListEl.appendChild(el); return; }
+    rooms.forEach(r=>{
+      const li = document.createElement("div");
+      li.className = "room-item";
+      const left = document.createElement("div");
+      left.innerHTML = `<div style="font-weight:700">${escapeHtml(r.name||"Room")}</div>
+                        <div class="meta">Host: ${escapeHtml(r.host)} • Code: ${escapeHtml(r.id)} • ${escapeHtml(String((r.players||[]).length))}/${escapeHtml(String(r.max_players||2))} players</div>`;
+      const right = document.createElement("div");
+      right.className = "room-actions";
+      const state = document.createElement("div");
+      state.className = "status-chip " + (r.state==="waiting"?"waiting": r.state==="full"?"full": r.state==="in_progress"?"full":"");
+      state.textContent = r.state;
+      const joinBtn = document.createElement("button");
+      joinBtn.className = "btn";
+      joinBtn.textContent = "Join";
+      joinBtn.onclick = ()=> joinRoomById(r.id);
+      right.appendChild(state);
+      right.appendChild(joinBtn);
+      li.appendChild(left);
+      li.appendChild(right);
+      roomListEl.appendChild(li);
+    });
+  }
+
+  function waitForGameAndRedirect(roomId, opts = {}) {
+    const gameServiceBase = opts.gameServiceBase || GAME_BASE;
+    const roomServiceBase = opts.roomServiceBase || ROOM_BASE;
+    let pollIntervalMs = opts.pollIntervalMs || 1200;
+    const timeoutMs = opts.timeoutMs || 90000;
+    const maxIntervalMs = 5000;
+    const start = Date.now();
+    function showMsg(text) { lobbyMessageEl.textContent = text; }
+    async function checkGameExists() {
+      try { const r = await fetch(`${gameServiceBase}/games/${encodeURIComponent(roomId)}`, {method:"GET"}); return r.ok; } catch (e) { return false; }
+    }
+    async function checkRoomState() {
+      try { const r = await fetch(`${roomServiceBase}/room/${encodeURIComponent(roomId)}`, {method:"GET", headers: authHeaders()}); if (!r.ok) return null; return await r.json(); } catch (e) { return null; }
+    }
+    async function poll() {
+      const gameFound = await checkGameExists();
+      if (gameFound) { showMsg("Game created — redirecting..."); setTimeout(()=> { location.href = `/static/game.html?room=${encodeURIComponent(roomId)}`; }, 300); return; }
+
+      const room = await checkRoomState();
+      if (room) {
+        if (room.state === "in_progress") {
+          showMsg("Room is in_progress — redirecting to game...");
+          setTimeout(()=> { location.href = `/static/game.html?room=${encodeURIComponent(roomId)}`; }, 300);
+          return;
+        }
+        if (room.state === "full" || (room.players && room.players.length >= room.max_players)) showMsg(`Room ${roomId} is full — waiting for game service to create the match...`);
+        else showMsg(`Waiting for players to join — ${room.players ? room.players.length : 0}/${room.max_players}`);
+      } else showMsg("Waiting for server...");
+      if (Date.now() - start > timeoutMs) { showMsg("Timeout waiting for game to start. Refresh to try again."); return; }
+      pollIntervalMs = Math.min(maxIntervalMs, Math.round(pollIntervalMs * 1.2));
+      gamePollHandle = setTimeout(poll, pollIntervalMs);
+    }
+    if (gamePollHandle) { clearTimeout(gamePollHandle); gamePollHandle = null; }
+    poll();
+  }
+
+  async function createRoom(){
+    createBtn.disabled = true;
+    createMsg.textContent = "Creating…";
+    const name = roomNameEl.value.trim() || "Room";
+    const max_players = Number(maxPlayersEl.value) || 2;
+    try {
+      const body = {name, max_players, username};
+      const res = await fetch(ROOM_BASE + "/create-room", { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
+      if (!res.ok) { const txt = await res.text(); createMsg.textContent = "Create failed: " + txt; return; }
+      const room = await res.json();
+      createMsg.textContent = `Created room "${room.name}"`;
+      currentRoomId = room.id;
+      roomCodeChip.textContent = room.id;
+      createdInfo.style.display = "block";
+      enterWaiting(room);
+      await loadRooms();
+      waitForGameAndRedirect(room.id);
+    } catch (err) { console.error("create error", err); createMsg.textContent = "Create error"; } finally { createBtn.disabled = false; }
+  }
+
+  copyCodeBtn.addEventListener("click", ()=>{
+    if (!currentRoomId) return;
+    navigator.clipboard.writeText(currentRoomId).then(()=>{ copyCodeBtn.textContent = "Copied"; setTimeout(()=> copyCodeBtn.textContent = "Copy",1000); }).catch(()=> alert("Copy failed"));
+  });
+
+  openRoomBtn.addEventListener("click", ()=> { if (!currentRoomId) return; waitingContainer.scrollIntoView({behavior:"smooth"}); });
+
+  async function joinByCode(){ const code = joinCodeInput.value.trim(); if (!code) return alert("Enter a room code"); await joinRoomById(code); }
+  joinByCodeBtn.addEventListener("click", joinByCode);
+
+  async function joinRoomById(id){
+    if (!username){ username = prompt("Enter your display name to join:", username || ""); if (!username) return; localStorage.setItem("last_username", username); setLoggedIn(username); }
+    try {
+      const res = await fetch(`${ROOM_BASE}/join-room/${id}`, { method: "POST", headers: authHeaders(), body: JSON.stringify({username}) });
+      if (!res.ok) { const t = await res.text(); return alert("Join failed: " + t); }
+      const room = await res.json();
+      currentRoomId = room.id;
+      roomCodeChip.textContent = room.id;
+      createdInfo.style.display = "block";
+      enterWaiting(room);
+      await loadRooms();
+      waitForGameAndRedirect(room.id);
+    } catch (err) { console.error("join err", err); alert("Join error"); }
+  }
+
+  function renderPlayers(players){
+    playersList.innerHTML = "";
+    (players || []).forEach(p => {
+      const el = document.createElement("div");
+      el.className = "player-item";
+      const label = (p === (username || "")) ? (p + " — You") : p;
+      const hostBadge = (currentRoomId && p && p === window._roomHost) ? ' <strong>(host)</strong>' : '';
+      el.innerHTML = `<div style="font-weight:600">${escapeHtml(label)}</div><div class="muted small">${p === (username || "") ? "You" : ""}${hostBadge}</div>`;
+      playersList.appendChild(el);
+    });
+  }
+
+  function enterWaiting(room){
+    window._roomHost = room.host;
+    waitingContainer.style.display = "block";
+    waitingTitle.textContent = `Waiting in "${room.name}"`;
+    waitingRoomCode.textContent = room.id || "—";
+    roomCodeChip.textContent = room.id || "—";
+    renderPlayers(room.players);
+    if (username && room.host && username === room.host) {
+      startGameBtn.style.display = "inline-block";
+    } else {
+      startGameBtn.style.display = "none";
+    }
+    startPolling();
+  }
+
+  startGameBtn.addEventListener("click", async ()=>{
+    if (!currentRoomId) return;
+    if (!username) return alert("You need to be logged in as host to start the game.");
+    startGameBtn.disabled = true;
+    const prevText = startGameBtn.textContent;
+    startGameBtn.textContent = "Starting…";
+    try {
+      const res = await fetch(`${ROOM_BASE}/start-game/${encodeURIComponent(currentRoomId)}`, {
+        method: "POST",
+        headers: Object.assign({}, authHeaders(), {"Content-Type":"application/json"}),
+        body: JSON.stringify({username})
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        alert("Start failed: " + t);
+        startGameBtn.disabled = false;
+        startGameBtn.textContent = prevText;
+        return;
+      }
+      startGameBtn.textContent = "Starting…";
+      lobbyMessageEl.textContent = "Start requested. Waiting for game service...";
+      waitForGameAndRedirect(currentRoomId);
+    } catch (e) {
+      console.error("start-game error", e);
+      alert("Failed to start game");
+      startGameBtn.disabled = false;
+      startGameBtn.textContent = prevText;
+    }
+  });
+
+  async function pollRoom(){ if (!currentRoomId) return; try { const r = await api("/room/" + currentRoomId); if (!r) return; renderPlayers(r.players || []); if (username && r.host && username === r.host) startGameBtn.style.display = "inline-block"; else startGameBtn.style.display = "none"; if (r.state === "in_progress") { stopPolling(); waitForGameAndRedirect(currentRoomId); } else if (r.state === "full") { stopPolling(); waitForGameAndRedirect(currentRoomId); } } catch (e) { console.warn("poll failed", e); } }
+  function startPolling(){ if (pollHandle) clearInterval(pollHandle); pollHandle = setInterval(pollRoom, 2000); pollRoom(); }
+  function stopPolling(){ if (pollHandle) clearInterval(pollHandle); pollHandle = null; }
+
+  async function leaveRoom(){ if (!currentRoomId || !username) return; try { await fetch(ROOM_BASE + "/leave-room/" + currentRoomId, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({username}) }); } catch(e){} currentRoomId = null; waitingContainer.style.display = "none"; stopPolling(); if (gamePollHandle) { clearTimeout(gamePollHandle); gamePollHandle = null; } lobbyMessageEl.textContent = ""; startGameBtn.style.display = "none"; await loadRooms(); }
+
+  logoutBtn.addEventListener("click", ()=>{ localStorage.removeItem("auth_token"); window.location.href = "/"; });
+  createBtn.addEventListener("click", createRoom);
+  refreshBtn.addEventListener("click", loadRooms);
+  leaveBtn.addEventListener("click", leaveRoom);
+
+  function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  loadRooms();
+  setInterval(loadRooms, 4000);
+</script>
+</body>
+</html>

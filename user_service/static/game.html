@@ -1,0 +1,246 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tic Tac Toe — Game</title>
+<style>
+  body{font-family:Inter,Arial,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(180deg,#071021 0%, #0b1220 60%);color:#e6eef8;margin:0}
+  .panel{width:520px;padding:20px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 12px 30px rgba(2,6,23,0.6)}
+  .info{margin-bottom:12px;text-align:center}
+  .muted{color:#98a0b3}
+  .small{font-size:13px;color:#98a0b3}
+  .players{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+  .board{display:grid;grid-template-columns:repeat(3,120px);gap:8px;justify-content:center}
+  .cell{width:120px;height:120px;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;font-size:52px;border-radius:10px;cursor:pointer;user-select:none}
+  .cell.disabled{cursor:not-allowed;opacity:0.7}
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer;background:#0b1220;color:#e6eef8}
+  .btn.primary{background:linear-gradient(90deg,#6ee7b7,#60a5fa);color:#04202b}
+  select,input[type=checkbox]{padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  #msg{height:20px;margin-top:8px;text-align:center;color:#c7d2e0}
+  .status{font-weight:600}
+  .bottom{margin-top:12px;text-align:center}
+</style>
+</head>
+<body>
+  <div class="panel">
+    <div class="info">
+      <div id="status" class="muted">Connecting…</div>
+      <div id="players" class="muted"></div>
+      <div id="msg" class="small"></div>
+    </div>
+
+    <div style="display:flex;justify-content:center;margin-bottom:12px;gap:8px;align-items:center">
+      <label class="small muted">Local play</label>
+      <input id="localToggle" type="checkbox" />
+      <label class="small muted" style="margin-left:8px">Player:</label>
+      <select id="playerSelect"></select>
+      <button id="setTurnBtn" class="btn">Set turn</button>
+    </div>
+
+    <div id="board" class="board"></div>
+
+    <div class="controls">
+      <button id="resetBtn" class="btn">Reset local</button>
+      <button id="back" class="btn">Back to Lobby</button>
+    </div>
+
+    <div class="bottom">
+      <div id="gameInfo" class="muted"></div>
+    </div>
+  </div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const gameId = params.get("room") || params.get("game") || prompt("Enter game/room code:");
+const token = localStorage.getItem("auth_token");
+const API_GAME = "http://127.0.0.1:8003";
+const WS_BASE = `ws://127.0.0.1:8003/ws/games/${encodeURIComponent(gameId)}`;
+
+if (!gameId){ alert("No game id"); location.href="/static/lobby.html"; }
+
+const boardEl=document.getElementById("board");
+const statusEl=document.getElementById("status");
+const playersEl=document.getElementById("players");
+const msgEl=document.getElementById("msg");
+const backBtn=document.getElementById("back");
+const resetBtn=document.getElementById("resetBtn");
+const localToggle=document.getElementById("localToggle");
+const playerSelect=document.getElementById("playerSelect");
+const setTurnBtn=document.getElementById("setTurnBtn");
+const gameInfoEl=document.getElementById("gameInfo");
+
+let ws=null;
+let state=null;
+let reconnectAttempts=0;
+let heartbeat=null;
+
+function setStatus(t){statusEl.textContent=t||"";}
+function setMsg(t){msgEl.textContent=t||"";if(t)setTimeout(()=>msgEl.textContent="",3000);}
+function currentUsername(){return localStorage.getItem("last_username")||"";}
+
+function renderBoard(board){
+  boardEl.innerHTML="";
+  for(let i=0;i<9;i++){
+    const c=document.createElement("div");
+    c.className="cell";
+    c.dataset.pos=i;
+    c.textContent=board[i]||"";
+    c.onclick=()=>onCellClick(i);
+    boardEl.appendChild(c);
+  }
+}
+
+function updateUI(g){
+  state=g;
+  renderBoard(g.board||[null,null,null,null,null,null,null,null,null]);
+  const you=currentUsername();
+  playersEl.innerHTML=`Players: <span class="status">${(g.players||[]).join(", ")}</span> — You: <strong>${you}</strong>`;
+  if(g.state==="finished"){
+    if(g.winner==="draw")setStatus("Game finished — Draw");
+    else setStatus(`Game finished — Winner: ${g.winner}`);
+  } else setStatus(`Turn: ${g.turn}`+(g.turn===you?" (your turn)":""));
+  const opts=(g.players||[]).slice();
+  playerSelect.innerHTML="";
+  opts.forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;playerSelect.appendChild(o);});
+  if(!opts.includes(playerSelect.value))playerSelect.selectedIndex=0;
+  gameInfoEl.textContent=`Game id: ${g.id} • State: ${g.state}`;
+}
+
+function detectWinner(board){
+  const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(const [a,b,c]of lines){
+    if(board[a]&&board[a]===board[b]&&board[a]===board[c])return board[a];
+  }
+  if(board.every(x=>x!==null))return"draw";
+  return null;
+}
+
+function playerSymbol(username){
+  if(!state||!state.symbols)return null;
+  return state.symbols[username]||null;
+}
+
+async function onCellClick(pos){
+  if(!state)return;
+  if(localToggle.checked){
+    const me=playerSelect.value||currentUsername();
+    if(!me)return setMsg("Select player");
+    if(state.turn!==me)return setMsg("Not your turn");
+    if(state.board[pos])return setMsg("Taken");
+    const sym=playerSymbol(me)||(me===(state.players&&state.players[0])?'X':'O');
+    state.board[pos]=sym;
+    const result=detectWinner(state.board);
+    if(result==="draw"){
+      state.state="finished";state.winner="draw";updateUI(state);setMsg("Draw");
+    } else if(result){
+      const w=Object.keys(state.symbols||{}).find(k=>state.symbols[k]===result)||result;
+      state.state="finished";state.winner=w;updateUI(state);setMsg("Winner: "+w);
+    } else {
+      const other=(state.players||[]).find(p=>p!==me);
+      state.turn=other;updateUI(state);
+    }
+    return;
+  }
+  if(!ws||ws.readyState!==WebSocket.OPEN)return setMsg("Disconnected");
+  const you=currentUsername();
+  if(state.turn!==you)return setMsg("Not your turn");
+  if(state.board[pos])return setMsg("Taken");
+  const payload={cmd:"move",position:pos};
+  if(token)payload.token=token;
+  ws.send(JSON.stringify(payload));
+}
+
+function resetLocal(){
+  if(!state)return;
+  state.board=[null,null,null,null,null,null,null,null,null];
+  state.state="waiting";
+  state.turn=(state.players&&state.players[0])||"";
+  state.winner=null;
+  updateUI(state);
+  setMsg("Reset");
+}
+
+async function fetchGameState(){
+  try{
+    const r=await fetch(`${API_GAME}/games/${encodeURIComponent(gameId)}`); 
+    if(!r.ok)return null;
+    return await r.json();
+  }catch(e){return null;}
+}
+
+function connectWebSocket(){
+  const url=WS_BASE+(token?`?token=${encodeURIComponent(token)}`:"");
+  ws=new WebSocket(url);
+
+  ws.onopen=()=>{
+    reconnectAttempts=0;
+    setStatus("Connected");
+    if(heartbeat)clearInterval(heartbeat);
+    heartbeat=setInterval(()=>{try{ws.send(JSON.stringify({cmd:"ping"}));}catch(e){}},20000);
+  };
+
+  ws.onmessage=(ev)=>{
+    try{
+      const msg=JSON.parse(ev.data);
+      if(msg.type==="game_update")updateUI(msg.game);
+      else if(msg.type==="error")setMsg("Server: "+msg.detail);
+      else if(msg.type==="initial_state"&&msg.game)updateUI(msg.game);
+    }catch(e){}
+  };
+
+  ws.onclose=()=>{
+    setStatus("Reconnecting...");
+    if(heartbeat){clearInterval(heartbeat);heartbeat=null;}
+    attemptReconnect();
+  };
+}
+
+function attemptReconnect(){
+  reconnectAttempts++;
+  const delay=Math.min(30000,1000*Math.pow(1.6,reconnectAttempts));
+  setTimeout(()=>connectWebSocket(),delay);
+}
+
+setTurnBtn.addEventListener("click",()=>{
+  if(!state)return setMsg("No game");
+  const selected=playerSelect.value;
+  if(!selected)return setMsg("Select player");
+  if(localToggle.checked){
+    state.turn=selected;
+    updateUI(state);
+    setMsg("Turn: "+selected);
+    return;
+  }
+  if(!ws||ws.readyState!==WebSocket.OPEN)return setMsg("Disconnected");
+  ws.send(JSON.stringify({cmd:"set_turn",player:selected,token:token}));
+  setMsg("Requested turn change");
+});
+
+(async function init(){
+  setStatus("Loading...");
+  const g=await fetchGameState();
+  if(g)updateUI(g);
+  else updateUI({id:gameId,board:[null,null,null,null,null,null,null,null,null],players:[],turn:"",symbols:{},state:"waiting"});
+  connectWebSocket();
+  setTimeout(async()=>{
+    if(!state||!state.players||state.players.length===0){
+      const g2=await fetchGameState();
+      if(g2)updateUI(g2);
+    }
+  },1200);
+})();
+
+backBtn.addEventListener("click",()=>location.href="/static/lobby.html");
+resetBtn.addEventListener("click",resetLocal);
+
+const observer=new MutationObserver(()=>{
+  if(!state)return;
+  if(state.state==="finished")Array.from(boardEl.children).forEach(c=>c.classList.add("disabled"));
+  else Array.from(boardEl.children).forEach(c=>c.classList.remove("disabled"));
+});
+observer.observe(boardEl,{childList:true,subtree:true});
+</script>
+</body>
+</html>
