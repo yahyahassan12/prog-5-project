@@ -14,7 +14,7 @@ This project implements a distributed Tic Tac Toe game using **three microservic
                        │  HTTP + WebSocket
                 ┌──────▼──────────────┐
                 │    User Service     │
-                │  (Auth, Static UI)  │
+                │ (Auth,JWT,Static UI)│
                 └───┬───────────────┬─┘
                     │               │
                     │HTTP           │HTTP
@@ -35,16 +35,23 @@ Handles:
 - Registration
 - Login
 - Password hashing
-- JWT creation & validation
-- Serves static web UI (`/static/*.html`)
+- JWT creation 
+- validating tokens
+- Serving static web pages (login, lobby, game UI)
+
+Technology:
+- FastAPI, SQLAlchemy, SQLite, Passlib, python-jose
 
 ### 2. Room Service (Port 8002)
 Handles:
 - Creating rooms
 - Joining rooms
 - Leaving rooms
-- Marking rooms as full
+- Manage room state (“waiting”, “full”, “in_progress”)
 - Notifying Game Rules Service when a room is full or game starts
+
+Storage:
+- In-memory Python dictionary
 
 ### 3. Game Rules Service (Port 8003)
 Handles:
@@ -54,12 +61,18 @@ Handles:
 - Move validation
 - WebSocket-based real-time updates
 
+Technology:
+- FastAPI WebSocket, SQLite, SQLAlchemy
+
 ### 4. CLI Client
 Terminal application for:
 - Register/Login
 - Create/Join/Start rooms
 - Play game via WebSocket
 - Local simulation mode
+
+python cli_client.py
+
 
 ### 5. Web Client (HTML UI)
 Pages:
@@ -192,6 +205,10 @@ uvicorn main:app --port 8003 --reload
 
 ## Environment Variables
 
+| Variable           | Purpose                                 |
+| ------------------ | --------------------------------------- |
+| `GAME_DB`          | SQLite DB path for game service         |
+| `USER_SERVICE_URL` | URL used by Game Rules service for auth |
 
 ----
 ## CLI Usage
